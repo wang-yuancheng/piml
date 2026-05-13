@@ -1,3 +1,3 @@
-# Contains weekly todos and updates
+## Contains weekly todos and updates
 
-## Week 1
+### Week 1
