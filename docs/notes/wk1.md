@@ -3,7 +3,7 @@
 Poisson Equation: $\nabla^2 \phi = f$ in domain $\Omega$ and $\phi = 0$ on the boundary $\partial\Omega$. Describes how a potential field behaves in the presence of a known source. We can solve this with an exact solver. However, if there are too many unknowns, causing the system of linear equations to become very large, then we need to use numerical methods. 
 
 For example, to solve a 2D Poisson equation, we can use the Central Difference Method to approximate the second derivatives. We will arrive at a formula known as the 5-point stencil. For the 2-dimensional Poisson equation: 
-v
+
 $$\frac{u(i+1,j) + u(i-1,j) + u(i,j+1) + u(i,j-1) - 4u(i,j)}{h^2} = f(i,j)$$
 
 Then, we apply this 5-point stencil to every single point in the grid except points on the boundary. We do not include boundary points to be solved because the boundary conditions are provided by us (usually at the boundary, $u(i,j) = 0$), meaning we already know the answers. 
