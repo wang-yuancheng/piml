@@ -21,17 +21,19 @@ We initialize the weights of the non-linear hidden layers to be random then free
 
 There are two methods to get the Laplacian of these features ($\phi$):
 
-1. **Using `jax.grad()` twice:** This method is slow because `jax.grad()` calculates the exact analytical derivative by tracing the calculus chain rule through the network's code, which is computationally exhausting to do for tens of thousands of points.
-2. **Using 5-point stencil:** This method is much faster because it skips exact calculus entirely and uses fast, simple algebraic approximations (addition and subtraction) between neighboring points on the uniform grid.
+1. **Using JAX's Automatic Differentiation:** Doing `jax.grad()` twice is slow because it calculates the exact analytical derivative by tracing the calculus chain rule through the network's code, which is computationally exhausting to do for tens of thousands of points. Hence, we use `jacfwd()` to get the specific derivatives `b_xx` and `b_yy` we need to avoid computing the entire Hessian matrix.
+2. **Using 5-point stencil:** This method is much faster because it skips exact calculus and uses simple algebraic approximations (addition and subtraction) between neighboring points on the uniform grid. However, they do not give exact values.
 
 Now, we have a system with the Laplacian applied: $Aw = b$, where the columns of Matrix $A$ are now the Laplacians of the features ($\nabla^2\phi$), $w$ is the vector of final unknown weights, and $b$ is the vector of known source terms.
 
-Now, we can use least squares approximation to minimize $(||Aw - b||_2)^2$. In a single, instant analytical step (using the Normal Equations, without needing many iterations of gradient descent), we get our desired weights and biases, and that is our solution to the Poisson equation.
+Now, we can use least squares approximation to minimize $(||Aw - b||_2)^2$. In a single analytical step using the Normal Equations and taking the inverse: $w = (A^TA+ \lambda I)^{−1}A^Tb$, we skip the many iterations of gradient descent, and get our desired weights and biases for the last linear layer, and that is our solution to the Poisson equation.
+
+Taking the inverse of a big matrix A can be memory intensive and slow, hence, we can use sketch and project methods that are faster and less memory intensive to approximately solve the Normal equations.
 
 #### Ill-Conditioning and Regularization
 Unlike the matrix $A$ in a standard $Au=f$ Poisson system which is relatively sparse, the matrix $A$ in the $Aw=b$ linear layer system is both dense and prone to ill-conditioning. When we calculate $A^T A$, this resulting square matrix will become even more ill-conditioned due to squaring the condition number $\kappa$: $\kappa(A^T A) = (\kappa(A))^2$. At this point, the matrix will require vastly more iterations to converge with numerical methods or completely fail with direct solving. 
 
-To make it less ill-conditioned, we can add L2 regularization so that the cost function = $||Aw - b||_2^2 + \lambda||w||_2^2$. This essentially adds a small value to the diagonal of $A^T A$. However, the matrix $A^T A$ will still be huge, and we still need memory-efficient methods to solve it. That is when we apply sketch and project methods to solve the linear system.
+To make it less ill-conditioned, we can add L2 regularization so that the cost function = $||Aw - b||_2^2 + \lambda||w||_2^2$. This is the $\lambda$ we saw above. This essentially adds a small value to the diagonal of $A^T A$. However, the matrix $A^T A$ will still be huge, and we still need memory-efficient methods to solve it. That is when we apply sketch and project methods to solve the linear system.
 
 ### Extras
 To visualize the matrix landscape, we plot the cost function $J(w) = (||Aw - b||_2)^2$, where the x and y axes are the weights $w_1, w_2$, and the vertical z axis is the error $J$. The landscape will be an elliptic paraboloid if and only if the system is perfectly linear and Matrix $A$ has full column rank.
