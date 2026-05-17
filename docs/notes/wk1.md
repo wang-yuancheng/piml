@@ -28,7 +28,7 @@ Now, we have a system with the Laplacian applied: $Aw = b$, where the columns of
 
 Now, we can use least squares approximation to minimize $(||Aw - b||_2)^2$. In a single analytical step using the Normal Equations and taking the inverse: $w = (A^TA+ \lambda I)^{−1}A^Tb$, we skip the many iterations of gradient descent, and get our desired weights and biases for the last linear layer, and that is our solution to the Poisson equation.
 
-Taking the inverse of a big matrix A can be memory intensive and slow, hence, we can use sketch and project methods that are faster and less memory intensive to approximately solve the Normal equations.
+Taking the inverse of a big matrix A can be memory intensive and slow as the computation for $A^TA$ is $O(Nd^2)$ (the time complexity for computing each element in $d \times d$ matrix $A^T A$ is $O(N)$ as we are computing the dot product of 2 vectors of length $N$). Hence, we can use sketch and project methods that are faster and less memory intensive to approximately solve the Normal equations.
 
 #### Ill-Conditioning and Regularization
 Unlike the matrix $A$ in a standard $Au=f$ Poisson system which is relatively sparse, the matrix $A$ in the $Aw=b$ linear layer system is both dense and prone to ill-conditioning. When we calculate $A^T A$, this resulting square matrix will become even more ill-conditioned due to squaring the condition number $\kappa$: $\kappa(A^T A) = (\kappa(A))^2$. At this point, the matrix will require vastly more iterations to converge with numerical methods or completely fail with direct solving. 

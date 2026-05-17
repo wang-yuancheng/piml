@@ -103,6 +103,9 @@ We add a tiny jitter (small constant) to the diagonal of $G$ for numerical stabi
 
 The Kaczmarz method treats each equation as an $m-1$ dimensional hyperplane in $m$ dimensional space, where $m$ is the total number of unknown variables (the no. of columns of $A_B$). The solution to the subset of linear equations is the intersection of the $m-1$ hyperplanes as mentioned above.
 
+**Iteration:** 
+We will do $x_{k+1}=x_k−A_B^Tz$, where $z = A_B (A_B^T)^{-1} r$ and $r = A_B x_0 - b_B$, we reach out update equation: $$x_{new} = x−A_B^T(A_B A_B^T)^ {−1}(A_B x − b_B)$$
+
 ---
 
 ### Time Delay Embedding & SINDy
