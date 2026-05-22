@@ -1,4 +1,4 @@
-#### Randomized Numerical Linear Algebra (RandNLA) & Sketch-and-Project
+### Randomized Numerical Linear Algebra (RandNLA) & Sketch-and-Project
 
 To solve $Ax = b$, if $A$ is a square and invertible, we can just compute $x = A^{-1}b$. But, it is not efficient when $A$ is large. It also does not work when $A$ is not invertible and/or not a square. We can use direct solvers like Gaussian elimination, but they become computationally infeasible when $A$ is too large. We look at 2 methods here that optimize the solving with iterative linear solvers.
 

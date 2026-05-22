@@ -1,4 +1,23 @@
-**Mathematical Proof of Block Gram Assembly**
+#### Implementation Complications
+**Stratified/Random Sampling with Replacement (batch-level)**
+Likely pull the same row into $A_B$. The resulting Gram matrix $A_B^T A_B$ becomes singular and highly ill-conditioned. We can add more Tikhonov regularization but that makes accuracy drop.
+
+**Stratified/Random Sampling with Replacement (epoch-level)**
+Probability of a coordinate being picked follows a binomial distribution, so sample variance can cause less ideal representation of the data.
+
+**Uniform Random Sampling without Replacement (epoch-level)**
+Boundary Conditions are under-represented for large datasets. 
+
+**Stratified Sampling without Replacement (epoch-level) [Actual Implementation]**
+Boundary condition and regularization rows might "run out". Hence, we need cyclic shufflers.
+
+**Uniform/With-Replacement Sampling on the L2 Regularization Block**
+The regularization matrix applies penalties to specific neural network weights, if sampled unevenly, some weights are heavily regularized while others are ignored. Hence, we need cyclic shufflers.
+
+**Sampling without replacement (batch level)**
+If we do not enforce sampling without replacement at epoch level, it still effectively is sampling with replacement at the epoch level. 
+
+#### Proof for Block Gram Assembly
 Let the global feature matrix $A$ have dimensions $N \times m$ and the target vector $b$ have dimensions $N \times 1$. 
 We horizontally slice $A$ and $b$ into $P$ smaller mini-batches, representing them as block column matrices:
 $$A = \begin{bmatrix} A_1 \\ A_2 \\ \vdots \\ A_P \end{bmatrix}, \quad b = \begin{bmatrix} b_1 \\ b_2 \\ \vdots \\ b_P \end{bmatrix}$$
