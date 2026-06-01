@@ -40,3 +40,6 @@ $$\gamma(v) = \begin{bmatrix} \cos(2\pi Bv) \\ \sin(2\pi Bv) \end{bmatrix}$$
 This produces a vector of length $2m$. Now the 2 raw coordinates is rich in features. We then feed this $\gamma(v)$ into the MLP.
 
 
+### Matrix-Free Linear Algebra
+
+*[Matrix-Free Linear Algebra: We want to use JAX's Jacobian-Vector Products (jax.jvp) and Vector-Jacobian Products (jax.vjp) to execute the Block Kaczmarz update steps without ever explicitly storing the features or materializing the massive $A_B$ matrix?????]*
