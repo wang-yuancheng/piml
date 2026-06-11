@@ -1,5 +1,4 @@
-#### Normalizing Inputs?
-*It appears that we **do not** need this as for now because the baseline is performing well.*
+#### We do not need this right now. Ignore.
 
 ##### Possible problem
 Because the dataset have peaks of $N$ ranging up to $N=18$, the $p$ in $v$ would have mostly $0.0$ most of the times at the bottom of the vector. We are safe for now because the zeros will zero out their corresponding random weights in $B$. However the variance of the output of the RFF (inputs to the MLP) would fluctuate depending on how many peaks the current sample has and might cause the features to be not as good. 
