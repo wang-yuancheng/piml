@@ -21,7 +21,6 @@ We assemble this equation iteratively by dynamically generating and discarding s
 
 **The Result:** The peak memory required is bounded by the largest matrix held at any instant: $\mathcal{O}(\max(N_{chunk}^2, N_{chunk} m_{chunk}))$. Because we can set $N_{chunk}$ and $m_{chunk}$, it is like a constant relative to $N$ or $m$. The space complexity drops to **$\mathcal{O}(1)$**.
 
-
 **The Outer Loop**
 To ensure all $8000$ coordinates are solved for, we conceptually slice the full batch into 8 blocks of 1000 rows. We sequentially update the weights for each of the $1000$ coordinates.
 
@@ -30,5 +29,3 @@ $$w^{(j)} = w^{(j-1)} - \alpha A_{row\_j}^T \left( A_{row\_j} A_{row\_j}^T + \ep
 
 * Block 1 (the first $1000$ coordinates) updates the initial guess ($w_0 = 0$).
 * Block 2 - 8 takes those weights and updates them to satisfy the next 1000 coordinates. 
-
-Passing top-to-bottom through all 8 blocks constitutes One Sweep. We perform multiple sweeps (e.g., 5 iterations) where we would hopefully get a similar result ($w$) as a direct solve.
