@@ -54,7 +54,7 @@ $$\mathbf{w}_{\text{MLP}}^{(k+1)} = \mathbf{w}_{\text{MLP}}^{(k)} - \alpha \math
 
 ---
 
-### 4. Outer Network Outer Loop Optimization
+### Outer Network Outer Loop Optimization
 The weight matrix $\mathbf{w}$ calculated via the Kaczmarz projection is treated as a constant during core backpropagation by blocking the gradient path: $\hat{\mathbf{w}} = \text{stop\_gradient}(\mathbf{w})$. This is because the Kaczmarz loop is an algebraic forward-projection method that relies on forward-mode derivatives, completely bypassing the need to backpropagate through the solver steps.
 
 The overall loss optimization adjusts only the underlying MLP structural weights ($\mathbf{W}_l, \mathbf{b}_l$) and the bounded regularization coefficient:
