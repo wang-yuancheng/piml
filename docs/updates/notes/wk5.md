@@ -15,6 +15,3 @@ $$\mathbb{E}[z_j] = 0$$$$\text{Var}(z_j) = \sum_{i=1}^{56} v_i^2 \text{Var}(b_{i
 We also see that $\sum_{i=1}^{56} v_i^2$ is simply the squared L2 norm $\|v\|_2^2$, the variance becomes:$$\text{Var}(z_j) = \sigma^2 \|v\|_2^2$$
 
 This shows that the variance of the values fed into the activation functions is directly proportional to the magnitude of $v$, meaning a sample with $18$ peaks will produce a much wider spread of inputs than a sample with $1$ peak. 
-
-##### Possible Solution
-To ensure the MLP receives features with consistent variance regardless of the number of active parameters, we can apply Layer Normalization to the full scaled projection vector $Z$:$$Z = 2\pi B^T v$$$$\hat{Z} = \text{LayerNorm}(Z)$$$$h_0 = \begin{bmatrix} \sin(\hat{Z}) \\ \cos(\hat{Z}) \end{bmatrix}$$
