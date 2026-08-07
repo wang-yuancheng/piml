@@ -7,19 +7,14 @@ The problem arises when we attempt to scale PINNs to predict results across larg
 Furthermore, it is not entirely clear if iterative, memory-saving approximation methods like Sketch-and-Project work well in these scenarios. Hence, this repository explores the integration of algorithms such as Randomized Block Kaczmarz to bypass the Gram matrix materialization to solve Poisson, Helmholtz, and Darcy Flow problems.
 
 ### Model Architecture
+**Random Fourier Features &rarr; MLP &rarr; Pseudoinverse.** Standard MLPs used in PINNs suffer from spectral bias, meaning they approximate low-frequency functions much more readily than high-frequency ones. This often traps the network in deceptive local minima with vanishing input gradients. To resolve this, we project the input vector $\mathbf{v} = [x, y]^T \in \mathbb{R}^2$ into a high-dimensional sinusoidal basis before the data reaches the hidden layers [2]. 
 
-![Architecture of Pi-PINN](docs/assets/overview/architecture_placeholder.png)
-*(Image source: Transferable Physics-Informed Representations via Closed-Form Head Adaptation)*
-
-**Random Fourier Features.** Standard MLPs used in PINNs suffer from spectral bias, meaning they approximate low-frequency functions much more readily than high-frequency ones. This often traps the network in deceptive local minima with vanishing input gradients. To resolve this, we project the input vector $\mathbf{v} = [x, y]^T \in \mathbb{R}^2$ into a high-dimensional sinusoidal basis before the data reaches the hidden layers [2]. 
-
-We generate a random frequency matrix $\mathbf{B} \in \mathbb{R}^{m \times 2}$, where $m$ is the number of frequency components, with entries drawn from a Gaussian distribution [2]:
+We generate a random frequency matrix $\mathbf{B} \in \mathbb{R}^{m \times 2}$, where $m$ is the number of frequency components, with entries drawn from a Gaussian distribution:
 
 $$
 b_{ij} \sim \mathcal{N}(0, \sigma^2)
 $$
-
-The variance $\sigma^2$ controls the spread of the sampled frequencies [2]. The projected coordinates $\mathbf{B}\mathbf{v}$ are then passed through trigonometric functions scaled by $2\pi$ [2]:
+ The projected coordinates $\mathbf{B}\mathbf{v}$ are then passed through trigonometric functions scaled by $2\pi$:
 
 $$
 \gamma(\mathbf{v}) = \begin{bmatrix} 
@@ -31,53 +26,54 @@ $$
 This enriches the raw 2D spatial inputs into a $2m$-dimensional feature vector $\gamma(\mathbf{v})$ that is fed directly into the MLP. This mapping natively aligns with the analytical solutions of many dynamical systems, drastically increasing input gradient variability and ensuring the network can capture high-frequency physical patterns [2].
 
 ### Memory-Efficient Sketch-and-Project
-
 Let $w \in \mathbb{R}^m$ be the network weights and $\Phi(x, y) \in \mathbb{R}^m$ be the concatenated feature map. For a sampled spatial batch of $N$ points, the target vector $b \in \mathbb{R}^N$ and the sketched matrix $A \in \mathbb{R}^{N \times m}$ are defined as:
 
 $$
-A = \begin{bmatrix} 
-\nabla^2 \Phi(x_{\text{pde}}, y_{\text{pde}}) \\ 
-\lambda_{bc} \Phi(x_{\text{bc}}, y_{\text{bc}}) 
-\end{bmatrix}, \quad 
-b = \begin{bmatrix} 
-f_{\text{pde}} \\ 
-\lambda_{bc} u_{\text{bc}} 
+A = \begin{bmatrix}
+\nabla^2 \Phi(x\_{\text{pde}}, y\_{\text{pde}}) \\
+\lambda\_{bc} \Phi(x\_{\text{bc}}, y\_{\text{bc}})
+\end{bmatrix}, \quad
+b = \begin{bmatrix}
+f\_{\text{pde}} \\
+\lambda\_{bc} u\_{\text{bc}}
 \end{bmatrix}
 $$
 
-Where $\lambda_{bc}$ is the boundary condition scaling factor. To bypass the $\mathcal{O}(m^2)$ memory bottleneck of materializing $A$, we partition the $m$ features into $C$ chunks such that:
+Where $\lambda\_{bc}$ is the boundary condition scaling factor. To bypass the $\mathcal{O}(N \cdot m)$ and $\mathcal{O}(N^2)$ memory bottlenecks of materializing $A$ and computing $A A^T$, we sequentially process $A$ using a dual-chunking strategy. 
+
+First, we partition the $N$ spatial rows into $B$ row blocks of size $N\_{\text{chunk}}$. For each row block $j \in \{1, \dots, B\}$, we further partition the $m$ features into $C$ column chunks of size $m\_{\text{chunk}}$:
 
 $$
-A = \begin{bmatrix} 
-A_1 & A_2 & \dots & A_C 
-\end{bmatrix}, \quad 
-w = \begin{bmatrix} 
-w_1^T & w_2^T & \dots & w_C^T 
+A^{(j)} = \begin{bmatrix}
+A\_1^{(j)} & A\_2^{(j)} & \dots & A\_C^{(j)}
+\end{bmatrix}, \quad
+w = \begin{bmatrix}
+w\_1^T & w\_2^T & \dots & w\_C^T
 \end{bmatrix}^T
 $$
 
-First, we iterate over the $C$ chunks to accumulate the Gram matrix $G$ and compute the residual vector $r$, which represents the error between the network's current prediction and the target $b$:
+For each spatial block $j$, we iterate over the $C$ feature chunks to dynamically accumulate the local Gram matrix $G^{(j)}$ and compute the residual vector $r^{(j)}$, which represents the error between the network's current prediction (using weights $w^{(j-1)}$) and the target block $b^{(j)}$:
 
 $$
-r = \left( \sum_{c=1}^C A_c w_c \right) - b, \quad G = \sum_{c=1}^C A_c A_c^T
+r^{(j)} = \left( \sum\_{c=1}^C A\_c^{(j)} w\_c^{(j-1)} \right) - b^{(j)}, \quad G^{(j)} = \sum\_{c=1}^C A\_c^{(j)} (A\_c^{(j)})^T
 $$
 
-After adding Tikhonov regularization $\lambda$, we then solve for the projection vector $z \in \mathbb{R}^N$:
+After adding Tikhonov regularization $\lambda$, we then solve for the block's projection vector $z^{(j)} \in \mathbb{R}^{N\_{\text{chunk}}}$:
 
 $$
-z = (G + \lambda I)^{-1} r
+z^{(j)} = (G^{(j)} + \lambda I)^{-1} r^{(j)}
 $$
 
-Finally, we update each feature chunk individually using the relaxation parameter $\alpha$:
+Finally, we update each feature chunk of the weights individually using the relaxation parameter $\alpha$:
 
 $$
-w_{c, \text{new}} = w_c - \alpha A_c^T zv
+w\_{c}^{(j)} = w\_c^{(j-1)} - \alpha (A\_c^{(j)})^T z^{(j)}
 $$
 
-This executes the exact Randomized Block Kaczmarz update while capping peak memory strictly at $\mathcal{O}(\max(N^2, N \cdot m_{\text{chunk}}))$:
+This executes the Randomized Block Kaczmarz update over the full spatial batch while capping peak memory strictly at $\mathcal{O}(\max(N\_{\text{chunk}}^2, N\_{\text{chunk}} m\_{\text{chunk}}))$, where if $N\_{\text{chunk}}$ and $m\_{\text{chunk}}$ are chosen as constants independent of $N$ and $m$, the relative space complexity can be considered $\mathcal{O}(1)$:
 
 $$
-w_{\text{new}} = w - \alpha A^T (A A^T + \lambda I)^{-1} (A w - b)
+w \leftarrow w - \alpha A^T (A A^T + \lambda I)^{-1} (A w - b)
 $$
 
 ### Datasets
@@ -111,12 +107,24 @@ The models were evaluated against several steady-state PDEs. Detailed documentat
 
 ### Additional Information
 * [Sketch-and-Project](docs/extra/sketch-and-project.md) - Details on $m$-chunking, and achieving $\mathcal{O}(1)$ space complexity.
-* [Tips and Tricks](docs/extra/tips_and_tricks.md) - Guidance on using pure data loss for capacity checking, matrix conditioning, and debugging PINN amplitudes.
+* [Supplementary Notes](docs/extra/notes.md) - Proofs, matrix conditioning and tikreg.
 
 ### Notebooks
-* `[Notebook 1]` - Description placeholder
-* `[Notebook 2]` - Description placeholder
-* `[Notebook 3]` - Description placeholder
+* `darcy_flow_direct.ipynb` - Notebook for solving entire PDEBench Darcy Flow dataset.
+* `darcy_flow_smoothing_data_gen.ipynb` - Script for smoothing the a(x,y) boundary in PDEBench Darcy Flow
+* `darcy_flow_solver_single.ipynb` - Notebook for solving a single sample of PDEBench Darcy Flow.
+* `helmholtz_analytical_data_generation.ipynb` - Script for generating dataset using analytical Helmholz equation.
+* `helmholtz_analytical_direct.ipynb` - Notebook for solving entire generated Helmholtz dataset.
+* `helmholtz_debug.ipynb` - Notebook where network is trained by only data loss, then,  prediction layer is replaced with psudoinverse for testing convergence. For debugging poor results from camlab-ethz Helmholtz dataset.
+* `helmholtz_direct.ipynb` - Notebook for solving entire camlab-ethz Helmholtz dataset. 
+* `modal_darcy_flow_train.py` - Script for PDEBench Darcy Flow dataset on modal.com for larger feature spaces.
+* `multi_pde_poisson_helmholtz_sketch_and_project.ipynb` - Notebook for solving both poisson-gauss and helmholtz analytical dataset simultaneously with sketch-and-project. 
+* `multi_pde_poisson_helmholtz.ipynb` - Notebook for solving both poisson-gauss and helmholtz analytical dataset simultaneously. 
+* `poisson_gauss_direct.ipynb` - Notebook for solving entire camlab-ethz Poisson-Gauss dataset. 
+* `poisson_gauss_solver_sketch-and-project.ipynb` -  Notebook for solving entire camlab-ethz Poisson-Gauss dataset with sketch-and-project.
+* `stencil.ipynb` - Script for building a finite difference feature table from a 2D Helmholtz solution.
+* `t10_poisson_direct.ipynb` - Notebook for solving single sample T10_S10_G20 dataset.
+* `t20_poisson_direct.ipynb` - Notebook for solving single sample T20_S30_G50 dataset.
 
 ### Future Work
 * [Future Work Placeholder]

@@ -1,6 +1,5 @@
 import modal
 
-# 1. Define Cloud Environment & Attach Data
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .pip_install(
@@ -20,7 +19,6 @@ image = (
 
 app = modal.App("darcy-flow-big-a100")
 
-# 2. Remote Training Function on A100
 @app.function(image=image, gpu="A100", timeout=86400)
 def train_model():
     import jax
@@ -49,7 +47,7 @@ def train_model():
     os.environ['XLA_PYTHON_CLIENT_ALLOCATOR'] = 'cuda_async'
     os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'true'
 
-    print("🚀 A100 GPU initialized:", jax.devices())
+    print("A100 GPU initialized:", jax.devices())
 
     beta = 10.0
     DATA_DIR = Path("/root/data")
@@ -96,7 +94,7 @@ def train_model():
         def __getitem__(self, idx): return self.a[idx], self.a_x[idx], self.a_y[idx], self.u[idx]
 
     # --- Massive Scale Configuration ---
-    n_train = 128
+    n_train = 16
     n_val = 10
     n_test = 10
     N_subset = n_train + n_val + n_test
@@ -105,16 +103,16 @@ def train_model():
     val_dataset = DarcyFlowDataset(all_a_flat[n_train:n_train+n_val], all_a_x_flat[n_train:n_train+n_val], all_a_y_flat[n_train:n_train+n_val], all_u_flat[n_train:n_train+n_val])
     test_dataset = DarcyFlowDataset(all_a_flat[n_train+n_val:N_subset], all_a_x_flat[n_train+n_val:N_subset], all_a_y_flat[n_train+n_val:N_subset], all_u_flat[n_train+n_val:N_subset])
 
-    batch_size_samples = 16 # Full batch to prevent gradient conflict
+    batch_size_samples = 16
     train_dataloader = jd.DataLoader(train_dataset, backend='pytorch', batch_size=batch_size_samples, shuffle=True, drop_last=True)
     val_dataloader = jd.DataLoader(val_dataset, backend='pytorch', batch_size=n_val, shuffle=False)
     test_dataloader = jd.DataLoader(test_dataset, backend='pytorch', batch_size=n_test, shuffle=False)
 
-    # --- Big Neural Network Definition ---
-    epochs = 1000
-    M = 4096  # Massively expanded dictionary capacity
+    # --- Neural Network Definition ---
+    epochs = 300
+    M = 1024
     chunk_size = 512
-    hidden_layers = [2048,2048,2048,2048] # Widened to prevent feature collapse
+    hidden_layers = [512,512,512,512]
     total_features = hidden_layers[-1]
 
     sigma = 1
@@ -178,19 +176,9 @@ def train_model():
     f_dir_chunk_spatial_vmap = vmap(get_f_dir_chunk, in_axes=(None, 0, 0, None, None))
     u_dir_spatial_vmap = vmap(get_u_dir, in_axes=(None, 0, 0, None))
 
-    # total_steps = epochs * len(train_dataloader)
-    # lr_schedule = optax.cosine_decay_schedule(init_value=1e-3, decay_steps=total_steps, alpha=0.01)
-    # optimizer = optax.adamw(learning_rate=lr_schedule, weight_decay=1e-4)
-
     total_steps = epochs * len(train_dataloader)
-    # 1. Lower the starting learning rate by a factor of 10
-    lr_schedule = optax.cosine_decay_schedule(init_value=1e-4, decay_steps=total_steps, alpha=0.01)
-    
-    # 2. Add gradient clipping to prevent explosion
-    optimizer = optax.chain(
-        optax.clip_by_global_norm(1.0),
-        optax.adamw(learning_rate=lr_schedule, weight_decay=1e-4)
-    )
+    lr_schedule = optax.cosine_decay_schedule(init_value=1e-3, decay_steps=total_steps, alpha=0.01)
+    optimizer = optax.adamw(learning_rate=lr_schedule, weight_decay=1e-4)
 
     def multiply_coefficients(f_x, f_y, f_xx, f_yy, a_pde, a_x_pde, a_y_pde):
         return -(a_x_pde * f_x + a_y_pde * f_y + a_pde * (f_xx + f_yy))
@@ -312,7 +300,7 @@ def train_model():
     history_train = {'total': [], 'pde': [], 'bc': [], 'data': []}
     history_val = {'total': [], 'pde': [], 'bc': [], 'data': []}
 
-    print("🔥 Starting A100 Full-Batch Training...")
+    print("Starting A100 Full-Batch Training...")
     for epoch in range(epochs):
         epoch_loss_scaled, ep_pde, ep_bc, ep_data, num_batches = 0.0, 0.0, 0.0, 0.0, 0
         
@@ -446,16 +434,14 @@ def train_model():
 
 @app.local_entrypoint()
 def main():
-    print("🚀 Launching Huge Darcy Flow A100 Training Job on Modal...")
+    print("Launching Huge Darcy Flow A100 Training Job on Modal...")
     
-    # Receive the returned bytes
     loss_img, pred_img = train_model.remote()
     
-    # Write them to your local hard drive
     with open("loss_curves_128.png", "wb") as f:
         f.write(loss_img)
-    print("✅ Saved loss_curves_128.png locally!")
+    print("Saved loss_curves_128.png locally!")
         
     with open("predictions_128.png", "wb") as f:
         f.write(pred_img)
-    print("✅ Saved predictions_128.png locally!")
+    print("Saved predictions_128.png locally!")
