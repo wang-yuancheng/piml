@@ -14,7 +14,8 @@ We generate a random frequency matrix $\mathbf{B} \in \mathbb{R}^{m \times 2}$, 
 $$
 b_{ij} \sim \mathcal{N}(0, \sigma^2)
 $$
- The projected coordinates $\mathbf{B}\mathbf{v}$ are then passed through trigonometric functions scaled by $2\pi$:
+
+The projected coordinates $\mathbf{B}\mathbf{v}$ are then passed through trigonometric functions scaled by $2\pi$:
 
 $$
 \gamma(\mathbf{v}) = \begin{bmatrix} 
@@ -30,35 +31,35 @@ Let $w \in \mathbb{R}^m$ be the network weights and $\Phi(x, y) \in \mathbb{R}^m
 
 $$
 A = \begin{bmatrix}
-\nabla^2 \Phi(x\_{\text{pde}}, y\_{\text{pde}}) \\
-\lambda\_{bc} \Phi(x\_{\text{bc}}, y\_{\text{bc}})
+\nabla^2 \Phi(x_{\text{pde}}, y_{\text{pde}}) \\
+\lambda_{bc} \Phi(x_{\text{bc}}, y_{\text{bc}})
 \end{bmatrix}, \quad
 b = \begin{bmatrix}
-f\_{\text{pde}} \\
-\lambda\_{bc} u\_{\text{bc}}
+f_{\text{pde}} \\
+\lambda_{bc} u_{\text{bc}}
 \end{bmatrix}
 $$
 
-Where $\lambda\_{bc}$ is the boundary condition scaling factor. To bypass the $\mathcal{O}(N \cdot m)$ and $\mathcal{O}(N^2)$ memory bottlenecks of materializing $A$ and computing $A A^T$, we sequentially process $A$ using a dual-chunking strategy. 
+Where $\lambda_{bc}$ is the boundary condition scaling factor. To bypass the $\mathcal{O}(N \cdot m)$ and $\mathcal{O}(N^2)$ memory bottlenecks of materializing $A$ and computing $A A^T$, we sequentially process $A$ using a dual-chunking strategy. 
 
-First, we partition the $N$ spatial rows into $B$ row blocks of size $N\_{\text{chunk}}$. For each row block $j \in \{1, \dots, B\}$, we further partition the $m$ features into $C$ column chunks of size $m\_{\text{chunk}}$:
+First, we partition the $N$ spatial rows into $B$ row blocks of size $N_{\text{chunk}}$. For each row block $j \in \{1, \dots, B\}$, we further partition the $m$ features into $C$ column chunks of size $m_{\text{chunk}}$:
 
 $$
 A^{(j)} = \begin{bmatrix}
-A\_1^{(j)} & A\_2^{(j)} & \dots & A\_C^{(j)}
+A_1^{(j)} & A_2^{(j)} & \dots & A_C^{(j)}
 \end{bmatrix}, \quad
 w = \begin{bmatrix}
-w\_1^T & w\_2^T & \dots & w\_C^T
+w_1^T & w_2^T & \dots & w_C^T
 \end{bmatrix}^T
 $$
 
 For each spatial block $j$, we iterate over the $C$ feature chunks to dynamically accumulate the local Gram matrix $G^{(j)}$ and compute the residual vector $r^{(j)}$, which represents the error between the network's current prediction (using weights $w^{(j-1)}$) and the target block $b^{(j)}$:
 
 $$
-r^{(j)} = \left( \sum\_{c=1}^C A\_c^{(j)} w\_c^{(j-1)} \right) - b^{(j)}, \quad G^{(j)} = \sum\_{c=1}^C A\_c^{(j)} (A\_c^{(j)})^T
+r^{(j)} = \bigg( \sum\limits_{c=1}^C A_c^{(j)} w_c^{(j-1)} \bigg) - b^{(j)}, \quad G^{(j)} = \sum\limits_{c=1}^C A_c^{(j)} (A_c^{(j)})^T
 $$
 
-After adding Tikhonov regularization $\lambda$, we then solve for the block's projection vector $z^{(j)} \in \mathbb{R}^{N\_{\text{chunk}}}$:
+After adding Tikhonov regularization $\lambda$, we then solve for the block's projection vector $z^{(j)} \in \mathbb{R}^{N_{\text{chunk}}}$:
 
 $$
 z^{(j)} = (G^{(j)} + \lambda I)^{-1} r^{(j)}
@@ -67,10 +68,10 @@ $$
 Finally, we update each feature chunk of the weights individually using the relaxation parameter $\alpha$:
 
 $$
-w\_{c}^{(j)} = w\_c^{(j-1)} - \alpha (A\_c^{(j)})^T z^{(j)}
+w_{c}^{(j)} = w_c^{(j-1)} - \alpha (A_c^{(j)})^T z^{(j)}
 $$
 
-This executes the Randomized Block Kaczmarz update over the full spatial batch while capping peak memory strictly at $\mathcal{O}(\max(N\_{\text{chunk}}^2, N\_{\text{chunk}} m\_{\text{chunk}}))$, where if $N\_{\text{chunk}}$ and $m\_{\text{chunk}}$ are chosen as constants independent of $N$ and $m$, the relative space complexity can be considered $\mathcal{O}(1)$:
+This executes the Randomized Block Kaczmarz update over the full spatial batch while capping peak memory strictly at $\mathcal{O}(\max(N_{\text{chunk}}^2, N_{\text{chunk}} m_{\text{chunk}}))$, where if $N_{\text{chunk}}$ and $m_{\text{chunk}}$ are chosen as constants independent of $N$ and $m$, the relative space complexity can be considered $\mathcal{O}(1)$:
 
 $$
 w \leftarrow w - \alpha A^T (A A^T + \lambda I)^{-1} (A w - b)
@@ -127,7 +128,7 @@ The models were evaluated against several steady-state PDEs. Detailed documentat
 * `t20_poisson_direct.ipynb` - Notebook for solving single sample T20_S30_G50 dataset.
 
 ### Future Work
-* [Future Work Placeholder]
+To train a PINN PDE Foundation Model that can solve many different types of linear equations, which requires a larger feature space, and hence, show that sketch-and-project is necessary and able to provide real value into optimizing training.
 
 ---
 
