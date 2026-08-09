@@ -6,7 +6,7 @@ The problem arises when we attempt to scale PINNs to predict results across larg
 
 Furthermore, it is not entirely clear if iterative, memory-saving approximation methods like Sketch-and-Project work well in these scenarios. Hence, this repository explores the integration of algorithms such as Randomized Block Kaczmarz to bypass the Gram matrix materialization to solve Poisson, Helmholtz, and Darcy Flow problems.
 
-### Model Architecture
+## Model Architecture
 **Random Fourier Features &rarr; MLP &rarr; Pseudoinverse.** Standard MLPs used in PINNs suffer from spectral bias, meaning they approximate low-frequency functions much more readily than high-frequency ones. This often traps the network in deceptive local minima with vanishing input gradients. To resolve this, we project the input vector $\mathbf{v} = [x, y]^T \in \mathbb{R}^2$ into a high-dimensional sinusoidal basis before the data reaches the hidden layers [2]. 
 
 We generate a random frequency matrix $\mathbf{B} \in \mathbb{R}^{m \times 2}$, where $m$ is the number of frequency components, with entries drawn from a Gaussian distribution:
@@ -26,7 +26,7 @@ $$
 
 This enriches the raw 2D spatial inputs into a $2m$-dimensional feature vector $\gamma(\mathbf{v})$ that is fed directly into the MLP. This mapping natively aligns with the analytical solutions of many dynamical systems, drastically increasing input gradient variability and ensuring the network can capture high-frequency physical patterns [2].
 
-### Memory-Efficient Sketch-and-Project
+## Memory-Efficient Sketch-and-Project
 Let $w \in \mathbb{R}^m$ be the network weights and $\Phi(x, y) \in \mathbb{R}^m$ be the concatenated feature map. For a sampled spatial batch of $N$ points, the target vector $b \in \mathbb{R}^N$ and the sketched matrix $A \in \mathbb{R}^{N \times m}$ are defined as:
 
 $$
@@ -77,40 +77,70 @@ $$
 w \leftarrow w - \alpha A^T (A A^T + \lambda I)^{-1} (A w - b)
 $$
 
-### Datasets
+## Tuning Loss Function and Matrix Scaling Factor
+
+In Physics-Informed Machine Learning, it is crucial to balance the gradients between the internal physics and the spatial boundaries using a weighted loss function:
+
+$$
+\mathcal{L} = \lambda_{\text{PDE}}\mathcal{L}_{\text{PDE}} + \lambda_{\text{BC}}\mathcal{L}_{\text{BC}}
+$$
+
+Enforcing boundary conditions strictly as a "hard boundary" often performs poorly in practice because the boundary information fails to properly propagate to the center of the domain. Therefore, a soft penalty approach with carefully tuned weights is required to balance the magnitude of gradients.
+
+This same balancing act extends directly to the matrix solve ($Aw = b$). A scaling factor ($\lambda_{\text{BC}}$) can be applied to the boundary rows of the linear system:
+
+$$
+A = \begin{bmatrix}
+A_{\text{PDE}} \\
+\lambda_{\text{BC}} A_{\text{BC}}
+\end{bmatrix}, \quad
+b = \begin{bmatrix}
+b_{\text{PDE}} \\
+\lambda_{\text{BC}} b_{\text{BC}}
+\end{bmatrix}
+$$
+
+## Datasets
 
 The models were evaluated against several steady-state PDEs. Detailed documentation for each dataset's generation, loss functions, and tuned hyperparameters can be found in their respective markdown files.
 
-#### Poisson
-* **Equation:** $\Delta u = f$
-* **T20 Dataset:** [Poisson T20 Notes](docs/datasets/poisson_t20.md)
-* **T10 Dataset:** Used to enforce incompressibility in fluid dynamics ($\nabla \cdot \mathbf{u} = 0$). Solves the Pressure Poisson Equation $\nabla^2 p = \frac{\rho}{\Delta t} \nabla \cdot \mathbf{u}^*$. [Poisson T10 Notes](docs/datasets/poisson_t10.md)
+**Download All:** https://huggingface.co/datasets/wangyuancheng/piml
 
-#### Poisson-Gauss
+### Poisson
+* **Equation:** $\Delta u = f$
+* **Description:** Contains T10 and T20 datasets used to solve pressure fields and enforce incompressibility.
+* **Dataset:** https://huggingface.co/datasets/wangyuancheng/piml
+* **Details:** [Poisson Experiments](docs/datasets/poisson.md)
+
+### Poisson-Gauss
 * **Equation:** $-\Delta u = f$
 * **Description:** Describes a potential field behaving in the presence of a known source defined by a sum of randomized 2D Gaussians. 
-* **Dataset:** [Poisson-Gauss Dataset](docs/datasets/poisson_gauss.md)
+* **Dataset:** https://huggingface.co/datasets/camlab-ethz/Poisson-Gauss
+* **Details:** [Poisson-Gauss Experiments](docs/datasets/poisson_gauss.md)
 
-#### Helmholtz
+### Helmholtz
 * **Equation:** $-\Delta u - \omega^2 a(x, y)u = 0$
 * **Description:** A steady-state wave propagation problem where $a(x,y)$ defines the spatial physical properties of the medium the wave is traveling through. 
-* **Dataset:** [Helmholtz Dataset](docs/datasets/helmholtz.md)
+* **Dataset:** https://huggingface.co/datasets/camlab-ethz/Helmholtz
+* **Details:** [Helmholtz Experiments](docs/datasets/helmholtz.md)
 
-#### Helmholtz Analytical
+### Helmholtz Analytical
 * **Equation:** $u(x, y) = \sum_{i=1}^{N_{max}} A_i \sin(f_{1,i} \pi x) \sin(f_{2,i} \pi y)$
 * **Description:** Contains 10,000 unique exact solutions utilizing randomized wave numbers and continuous amplitudes to create superimposed wave modes. 
-* **Dataset:** [Helmholtz Analytical Dataset](docs/datasets/helmholtz_analytical.md)
+* **Dataset:** Dataset generation script - `helmholtz_analytical_data_generation.ipynb`
+* **Details:** [Helmholtz Analytical Experiments](docs/datasets/helmholtz_analytical.md)
 
-#### Darcy Flow
+### Darcy Flow
 * **Equation:** $-\nabla(a(x)\nabla u(x)) = f(x)$
-* **Description:** Models steady-state 2D fluid flow over a unit square where the viscosity term $a(x)$ is a dynamic, spatially dependent input. 
-* **Dataset:** [Darcy Flow Dataset](docs/datasets/darcy_flow.md)
+* **Description:** Models steady-state 2D fluid flow over a unit square where the viscosity term $a(x)$ is a dynamic, spatially dependent input.
+* **Dataset:** https://github.com/pdebench/PDEBench
+* **Details:** [Darcy Flow Experiments](docs/datasets/darcy_flow.md)
 
-### Additional Information
-* [Sketch-and-Project](docs/extra/sketch-and-project.md) - Details on $m$-chunking, and achieving $\mathcal{O}(1)$ space complexity.
-* [Supplementary Notes](docs/extra/notes.md) - Proofs, matrix conditioning and tikreg.
+## Additional Information
+* [Sketch-and-Project](docs/extra/sketch-and-project.md) - Details on how different Randomized Sketch-and-Project algorithms work.
+* [Supplementary Notes](docs/extra/notes.md) - Achieving relative $\mathcal{O}(1)$ space complexity by optimizing implementation of Sketch-and-Project, explaining Dual-Step training loop.
 
-### Notebooks
+## Notebooks
 * `darcy_flow_direct.ipynb` - Notebook for solving entire PDEBench Darcy Flow dataset.
 * `darcy_flow_smoothing_data_gen.ipynb` - Script for smoothing the a(x,y) boundary in PDEBench Darcy Flow
 * `darcy_flow_solver_single.ipynb` - Notebook for solving a single sample of PDEBench Darcy Flow.
@@ -127,12 +157,10 @@ The models were evaluated against several steady-state PDEs. Detailed documentat
 * `t10_poisson_direct.ipynb` - Notebook for solving single sample T10_S10_G20 dataset.
 * `t20_poisson_direct.ipynb` - Notebook for solving single sample T20_S30_G50 dataset.
 
-### Future Work
+## Future Work
 To train a PINN PDE Foundation Model that can solve many different types of linear equations, which requires a larger feature space, and hence, show that sketch-and-project is necessary and able to provide real value into optimizing training.
 
----
-
-### References
+## References
 [1] J. C. Wong, I. Y. C. Lai, P.-H. Chiu, C. C. Ooi, A. Gupta, and Y.-S. Ong, "Transferable Physics-Informed Representations via Closed-Form Head Adaptation," *arXiv preprint arXiv:2604.21761*, 2026.
 
 [2] J. C. Wong, C. C. Ooi, A. Gupta, and Y.-S. Ong, "Learning in Sinusoidal Spaces With Physics-Informed Neural Networks," *IEEE Transactions on Artificial Intelligence*, vol. 5, no. 3, pp. 985–1000, Mar. 2024.

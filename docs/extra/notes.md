@@ -94,3 +94,16 @@ We loop 20 times over the feature dimension. Inside this loop, we pass the 1,000
 By structuring the implementation this way, the XLA compiler never materializes the $10000 \times 20000$ matrix ($1.6$ GB) or the $10000 \times 10000$ Gram matrix.
 
 The absolute largest matrix the GPU holds in VRAM at any specific instant is the batched Gram matrix for the chunk: $8 \times 1000 \times 1000$.
+
+### Dual-Step Training Loop
+
+The training loop employs a two-step alternating optimization strategy for each sampled batch of spatial coordinates:
+
+1. **Freeze Network Parameters (Update $w$):** First, the neural network's hidden layer parameters are frozen. The model computes the spatial derivatives directly on the high-dimensional features to assemble the linear system $Aw = b$. A linear least-squares solver is then used to find the optimal final layer weights $w$ for the current batch.
+2. **Freeze Linear Weights (Update Params):** Next, the newly computed final layer weights $w$ are frozen. The model computes the scalar prediction $u = f \cdot w$ first, which allows it to utilize the memory-efficient commutativity trick to compute the Laplacian ($\nabla^2 u$). The resulting physical and boundary losses are evaluated, and gradient descent is used to backpropagate and update the neural network's hidden layer parameters.
+
+This alternating process of solving for the exact weights $w$ then do gradient-based updates to the representation `params` is repeated across all spatial batches until the end of the training epochs.
+
+#### Saving memory during update of MLP weights
+
+We can do $\nabla^2(f \cdot w)$ instead of $(\nabla^2 f) \cdot w$ because w is independent of the raw coordinates $x$ and $y$. This would not work for non-linear equations though. This makes the JAX computational graph take way less memory. By doing the dot product first, we multiply the $(N, m)$ features by the $(m, 1)$ weights, getting a vector $u$ of shape $(N, 1)$. Taking laplacian on $(N, 1)$ versus on $(N, m)$ matrix is a huge memory save.
