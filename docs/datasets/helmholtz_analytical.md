@@ -46,7 +46,3 @@ Relative L2 Error : 1.44e-06 | Data Loss: 2.86e-11 | BC Loss: 5.03e-10 | PDE Los
 * **`bc_loss_weight`**: A scaling factor applied to the boundary residual.
 * **`spatial_batch_size`**: The number of points sampled from the PDE interior domain per training epoch.
 * **`bc_batch_size`**: The number of points sampled from the boundaries per training epoch.
-
-
-
-concat dont work well
