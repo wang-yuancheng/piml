@@ -142,10 +142,10 @@ We see that the new squared error $\lVert x_{k+1} - x^* \rVert^2$ is equal to th
 #### Block Kaczmarz
 For Block Kaczmarz (block size > 1), we project our current guess $x_0$ directly onto the intersection of all the hyperplanes in our randomly selected block simultaneously. Here, we cannot just follow one normal vector. We must move in a direction that is a linear combination of all the normal vectors in our block. 
 
-To do so, we use a Gram System. The projection uses the Gram Matrix $G$. Actually, for standard Kaczmarz, it is a special case where the block has a single row, so $G$ is a 1x1 scalar $a$.
+To do so, we use a Gram System. The projection uses the Gram Matrix $G$. Actually, for standard Kaczmarz, it is a special case where the block has a single row, so $G$ is a 1x1 scalar ${\lVert a \rVert^2}$.
 
 **Gram Matrix $G = A_B A_B^T$:**
-1. $G$ is always symmetric (and square), hence invertible.
+1. $G$ is always symmetric and square, but it is only invertible if the rows of $A_B$ are linearly independent.
 2. $G$ is Positive Semi-Definite. Its eigenvalues are always non-negative ($\lambda \ge 0$).
 
 From standard Kaczmarz, we have:
@@ -194,7 +194,7 @@ $$
 x_{k+1}=x_k−A_B^Tz
 $$
 
-where $z = A_B (A_B^T)^{-1} r$ and $r = A_B x_0 - b_B$. We reach our update equation:
+where $z = (A_B A_B^T)^{-1} r$ and $r = A_B x_0 - b_B$. We reach our update equation:
 
 $$
 x_{new} = x−A_B^T(A_B A_B^T)^ {−1}(A_B x − b_B)

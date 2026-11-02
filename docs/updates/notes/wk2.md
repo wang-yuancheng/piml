@@ -1,6 +1,6 @@
 #### Implementation Complications
 **Stratified/Random Sampling with Replacement (batch-level)**
-Likely pull the same row into $A_B$. The resulting Gram matrix $A_B^T A_B$ becomes singular and highly ill-conditioned. We can add more Tikhonov regularization but that makes accuracy drop.
+Likely pull the same row into $A_B$. The resulting Gram matrix $A_B A_B^T$ becomes singular and highly ill-conditioned. We can add more Tikhonov regularization but that makes accuracy drop.
 
 **Stratified/Random Sampling with Replacement (epoch-level)**
 Probability of a coordinate being picked follows a binomial distribution, so sample variance can cause less ideal representation of the data.
